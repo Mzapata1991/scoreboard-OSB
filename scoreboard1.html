@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marcador Fútbol - OBS</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    font-family: 'Barlow Condensed', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  /* ===== INFO BAR ===== */
+  #infobar {
+    width: 680px;
+    background: rgba(0, 30, 70, 0.97);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 4px 14px;
+  }
+
+  #info-phase, #info-stadium {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .info-sep {
+    color: rgba(255,255,255,0.25);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  /* ===== SCOREBOARD OVERLAY ===== */
+  #scoreboard {
+    width: 680px;
+    background: rgba(0, 56, 120, 0.96);
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #scoreboard::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #ffffff, #7ec8e3, #ffffff);
+  }
+
+  .team-block {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .team-block.home { flex-direction: row; }
+  .team-block.away { flex-direction: row-reverse; }
+
+  .shield {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .shield img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .shield-placeholder {
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,0.08);
+    border: 1px dashed rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.03em;
+  }
+
+  .team-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: #ffffff;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    flex: 1;
+    text-transform: uppercase;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+
+  .team-block.away .team-name { text-align: right; }
+
+  .center-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .score-display {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .score-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: #fff;
+    line-height: 1;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .score-sep {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1;
+    padding: 0 2px;
+  }
+
+  .time-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .time-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    color: #7ec8e3;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+
+  .live-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #7ec8e3;
+    animation: pulse 1.2s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .period-label {
+    font-size: 9px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+  }
+
+  /* ===== CONTROL PANEL ===== */
+  #panel {
+    width: 680px;
+    margin-top: 20px;
+    background: #0a1f3d;
+    border: 1px solid #1a3a6a;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    background: #0d2a52;
+    padding: 10px 16px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #7ec8e3;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #1a3a6a;
+  }
+
+  .panel-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .panel-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+
+  .field-group label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #4a7aaa;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+
+  .field-group input, .field-group select {
+    background: #0d2a52;
+    border: 1px solid #1a3a6a;
+    border-radius: 4px;
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  .field-group input:focus, .field-group select:focus {
+    border-color: #7ec8e3;
+  }
+
+  .field-group input[type="file"] {
+    font-size: 11px;
+    padding: 5px 8px;
+    cursor: pointer;
+    color: #4a7aaa;
+  }
+
+  .field-group input[type="file"]::-webkit-file-upload-button {
+    background: #1a3a6a;
+    border: none;
+    color: #ccc;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    margin-right: 8px;
+  }
+
+  /* Score controls */
+  .score-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .score-ctrl {
+    background: #0d2a52;
+    border: 1px solid #1a3a6a;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .score-ctrl-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #4a7aaa;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+
+  .score-btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-score {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #1a3a6a;
+    background: #0a1f3d;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .btn-score:hover { background: #1a3a6a; border-color: #7ec8e3; color: #7ec8e3; }
+  .btn-score:active { transform: scale(0.93); }
+
+  .score-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: #fff;
+    min-width: 30px;
+    text-align: center;
+    flex: 1;
+  }
+
+  /* Timer controls */
+  .timer-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .timer-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn-action {
+    padding: 9px 12px;
+    border-radius: 4px;
+    border: 1px solid #1a3a6a;
+    background: #0d2a52;
+    color: #7ec8e3;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn-action:hover { background: #1a3a6a; border-color: #7ec8e3; color: #fff; }
+  .btn-action:active { transform: scale(0.97); }
+
+  .btn-action.primary {
+    background: #003878;
+    color: #fff;
+    border-color: #7ec8e3;
+  }
+
+  .btn-action.primary:hover { background: #7ec8e3; color: #003878; }
+
+  .btn-action.danger {
+    border-color: #e05555;
+    color: #e05555;
+  }
+
+  .btn-action.danger:hover { background: #1a0a0a; }
+
+  .extra-time-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .divider {
+    height: 1px;
+    background: #1a3a6a;
+    margin: 2px 0;
+  }
+
+  .status-text {
+    font-size: 11px;
+    color: #4a7aaa;
+    font-family: 'Barlow Condensed', sans-serif;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  .status-text span {
+    color: #7ec8e3;
+    font-weight: 600;
+  }
+
+  /* Halftime indicator */
+  .half-indicator {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .half-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid #1a3a6a;
+    background: #0a1f3d;
+    transition: all 0.2s;
+  }
+
+  .half-dot.active { background: #7ec8e3; border-color: #7ec8e3; }
+
+  /* Half buttons */
+  .btn-half {
+    padding: 7px 6px;
+    border-radius: 4px;
+    border: 1px solid #1a3a6a;
+    background: #0d2a52;
+    color: #7ec8e3;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .btn-half:hover { background: #1a3a6a; color: #fff; }
+  .btn-half:active { transform: scale(0.97); }
+
+  .btn-half.active {
+    background: #7ec8e3;
+    color: #003878;
+    border-color: #7ec8e3;
+    font-weight: 700;
+  }
+
+  /* OBS hint */
+  .obs-hint {
+    background: #071830;
+    border: 1px solid #1a3a6a;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #4a7aaa;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<!-- INFO BAR -->
+<div id="infobar">
+  <span id="info-phase">COPA LIBERTADORES — FASE DE GRUPOS</span>
+  <span class="info-sep">|</span>
+  <span id="info-stadium">ESTADIO</span>
+</div>
+
+<!-- SCOREBOARD (lo que se ve en OBS) -->
+<div id="scoreboard">
+  <div class="team-block home">
+    <div class="shield" id="shield-home">
+      <div class="shield-placeholder" id="placeholder-home">ESCUDO<br>LOCAL</div>
+    </div>
+    <div class="team-name" id="name-home">LOCAL</div>
+  </div>
+
+  <div class="center-block">
+    <div class="score-display">
+      <span class="score-num" id="score-home">0</span>
+      <span class="score-sep">:</span>
+      <span class="score-num" id="score-away">0</span>
+    </div>
+    <div class="time-bar">
+      <div class="live-dot" id="live-dot"></div>
+      <span class="time-display" id="time-display">00'</span>
+    </div>
+    <div class="period-label" id="period-label">1ER TIEMPO</div>
+  </div>
+
+  <div class="team-block away">
+    <div class="shield" id="shield-away">
+      <div class="shield-placeholder" id="placeholder-away">ESCUDO<br>VISIT.</div>
+    </div>
+    <div class="team-name" id="name-away">VISITANTE</div>
+  </div>
+</div>
+
+<!-- PANEL DE CONTROL -->
+<div id="panel">
+  <div class="panel-header">Panel de Control — Marcador</div>
+  <div class="panel-body">
+
+    <!-- Nombres -->
+    <div class="panel-row">
+      <div class="field-group">
+        <label>Equipo Local</label>
+        <input type="text" id="input-home" placeholder="Ej: Nacional" maxlength="16" oninput="updateName('home')">
+      </div>
+      <div class="field-group">
+        <label>Equipo Visitante</label>
+        <input type="text" id="input-away" placeholder="Ej: Peñarol" maxlength="16" oninput="updateName('away')">
+      </div>
+    </div>
+
+    <!-- Competición y Estadio -->
+    <div class="panel-row">
+      <div class="field-group">
+        <label>Competición / Fase</label>
+        <input type="text" id="input-phase" placeholder="Ej: Copa Libertadores — Fase de Grupos" maxlength="50" oninput="updateInfo('phase')">
+      </div>
+      <div class="field-group">
+        <label>Estadio</label>
+        <input type="text" id="input-stadium" placeholder="Ej: Gran Parque Central" maxlength="40" oninput="updateInfo('stadium')">
+      </div>
+    </div>
+
+    <!-- Escudos -->
+    <div class="panel-row">
+      <div class="field-group">
+        <label>Escudo Local (imagen)</label>
+        <input type="file" id="file-home" accept="image/*" onchange="loadShield('home')">
+      </div>
+      <div class="field-group">
+        <label>Escudo Visitante (imagen)</label>
+        <input type="file" id="file-away" accept="image/*" onchange="loadShield('away')">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Marcador -->
+    <div class="score-controls">
+      <div class="score-ctrl">
+        <div class="score-ctrl-label">Goles Local</div>
+        <div class="score-btns">
+          <button class="btn-score" onclick="changeScore('home', -1)">−</button>
+          <div class="score-val" id="ctrl-score-home">0</div>
+          <button class="btn-score" onclick="changeScore('home', 1)">+</button>
+        </div>
+      </div>
+      <div class="score-ctrl">
+        <div class="score-ctrl-label">Goles Visitante</div>
+        <div class="score-btns">
+          <button class="btn-score" onclick="changeScore('away', -1)">−</button>
+          <div class="score-val" id="ctrl-score-away">0</div>
+          <button class="btn-score" onclick="changeScore('away', 1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Tiempo -->
+    <div class="timer-controls">
+      <div class="timer-row">
+        <button class="btn-action primary" id="btn-start" onclick="startTimer()">▶ Iniciar</button>
+        <button class="btn-action" id="btn-pause" onclick="pauseTimer()">⏸ Pausar</button>
+        <button class="btn-action danger" onclick="resetTimer()">↺ Reiniciar</button>
+      </div>
+
+      <div class="extra-time-row">
+        <div class="field-group">
+          <label>Descuento (minutos)</label>
+          <input type="number" id="extra-time" min="0" max="20" value="0" style="text-align:center;">
+        </div>
+        <div class="field-group">
+          <label>Período</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:2px;">
+            <button class="btn-half active" id="btn-half-1" onclick="changeHalf('1')">1er Tiempo</button>
+            <button class="btn-half" id="btn-half-2" onclick="changeHalf('2')">2do Tiempo</button>
+            <button class="btn-half" id="btn-half-ht" onclick="changeHalf('ht')">Descanso</button>
+            <button class="btn-half" id="btn-half-ft" onclick="changeHalf('ft')">Fin</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="status-text" id="status-text">Reloj detenido — Listo para iniciar</div>
+
+    <div class="obs-hint">
+      <strong>Cómo usar en OBS:</strong> Agregar fuente → Navegador → URL local del archivo → 680×90 px → Activar "Actualizar al mostrar". El panel de control no se ve en el stream, solo el marcador superior.
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let seconds = 0;
+  let timerInterval = null;
+  let isRunning = false;
+  let currentHalf = 1;
+  let scoreHome = 0;
+  let scoreAway = 0;
+  let extraMinutes = 0;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function updateTimerDisplay() {
+    const totalMinutes = Math.floor(seconds / 60);
+    const extraInput = parseInt(document.getElementById('extra-time').value) || 0;
+
+    let baseMax = currentHalf === 1 ? 45 : 90;
+    let display = '';
+
+    if (currentHalf === 'ht') {
+      document.getElementById('time-display').textContent = 'HT';
+      document.getElementById('period-label').textContent = 'DESCANSO';
+      document.getElementById('live-dot').style.animationPlayState = 'paused';
+      document.getElementById('live-dot').style.opacity = '0.3';
+      return;
+    }
+
+    if (currentHalf === 'ft') {
+      document.getElementById('time-display').textContent = 'FT';
+      document.getElementById('period-label').textContent = 'FIN';
+      document.getElementById('live-dot').style.animationPlayState = 'paused';
+      document.getElementById('live-dot').style.opacity = '0.3';
+      return;
+    }
+
+    if (totalMinutes >= baseMax && extraInput > 0) {
+      let over = totalMinutes - baseMax + 1;
+      over = Math.min(over, extraInput);
+      display = baseMax + '+' + over + '\'';
+    } else {
+      display = totalMinutes + '\'';
+    }
+
+    document.getElementById('time-display').textContent = display;
+    document.getElementById('period-label').textContent = currentHalf === 1 ? '1ER TIEMPO' : '2DO TIEMPO';
+    document.getElementById('live-dot').style.animationPlayState = isRunning ? 'running' : 'paused';
+    document.getElementById('live-dot').style.opacity = isRunning ? '1' : '0.3';
+  }
+
+  function startTimer() {
+    if (isRunning) return;
+    if (currentHalf === 'ht' || currentHalf === 'ft') return;
+    isRunning = true;
+    timerInterval = setInterval(() => {
+      seconds++;
+      extraMinutes = parseInt(document.getElementById('extra-time').value) || 0;
+      let maxSeconds = (currentHalf === 1 ? 45 : 90) * 60 + extraMinutes * 60;
+      if (seconds > maxSeconds) seconds = maxSeconds;
+      updateTimerDisplay();
+    }, 1000);
+    updateStatus();
+  }
+
+  function pauseTimer() {
+    if (!isRunning) return;
+    clearInterval(timerInterval);
+    isRunning = false;
+    document.getElementById('live-dot').style.animationPlayState = 'paused';
+    document.getElementById('live-dot').style.opacity = '0.3';
+    updateStatus();
+  }
+
+  function resetTimer() {
+    pauseTimer();
+    seconds = currentHalf === 2 ? 45 * 60 : 0;
+    updateTimerDisplay();
+    updateStatus();
+  }
+
+  function changeHalf(val) {
+    pauseTimer();
+    document.querySelectorAll('.btn-half').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-half-' + val).classList.add('active');
+    if (val === '1') {
+      currentHalf = 1;
+      seconds = 0;
+    } else if (val === '2') {
+      currentHalf = 2;
+      seconds = 45 * 60;
+    } else if (val === 'ht') {
+      currentHalf = 'ht';
+    } else if (val === 'ft') {
+      currentHalf = 'ft';
+    }
+    updateTimerDisplay();
+    updateStatus();
+  }
+
+  function updateStatus() {
+    const min = Math.floor(seconds / 60);
+    const half = currentHalf === 1 ? '1er tiempo' : currentHalf === 2 ? '2do tiempo' : currentHalf === 'ht' ? 'Descanso' : 'Fin';
+    const state = isRunning ? 'Corriendo' : 'Pausado';
+    document.getElementById('status-text').innerHTML = `${state} — <span>${half}</span> — Minuto <span>${min}'</span>`;
+  }
+
+  function changeScore(team, delta) {
+    if (team === 'home') {
+      scoreHome = Math.max(0, scoreHome + delta);
+      document.getElementById('score-home').textContent = scoreHome;
+      document.getElementById('ctrl-score-home').textContent = scoreHome;
+    } else {
+      scoreAway = Math.max(0, scoreAway + delta);
+      document.getElementById('score-away').textContent = scoreAway;
+      document.getElementById('ctrl-score-away').textContent = scoreAway;
+    }
+  }
+
+  function updateInfo(field) {
+    if (field === 'phase') {
+      const val = document.getElementById('input-phase').value.toUpperCase() || 'COMPETICIÓN — FASE';
+      document.getElementById('info-phase').textContent = val;
+    } else {
+      const val = document.getElementById('input-stadium').value.toUpperCase() || 'ESTADIO';
+      document.getElementById('info-stadium').textContent = val;
+    }
+  }
+
+  function updateName(team) {
+    const val = document.getElementById('input-' + team).value.toUpperCase() || (team === 'home' ? 'LOCAL' : 'VISITANTE');
+    document.getElementById('name-' + team).textContent = val;
+  }
+
+  function loadShield(team) {
+    const file = document.getElementById('file-' + team).files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const container = document.getElementById('shield-' + team);
+      container.innerHTML = '<img src="' + e.target.result + '" alt="escudo">';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  updateTimerDisplay();
+  updateStatus();
+</script>
+</body>
+</html>
